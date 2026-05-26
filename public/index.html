@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Polla del Mundial 2026 - Haz tus predicciones y compite con tus amigos">
+  <meta name="theme-color" content="#1a73e8">
+  <title>Polla Mundial 2026 🏆</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- LOADER -->
+  <div id="loader" class="loader">
+    <div class="loader-spinner"></div>
+    <p>Cargando...</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PANTALLA DE LOGIN -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="auth-screen" class="screen">
+    <div class="auth-container">
+      <div class="auth-header">
+        <h1>🏆 Polla Mundial 2026</h1>
+        <p>Ingresa con tu cuenta</p>
+      </div>
+
+      <form id="login-form" class="auth-form active">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="login-password">Contraseña</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="login-password" required autocomplete="current-password">
+            <button type="button" class="password-toggle" data-target="login-password">
+              <span class="eye-icon">👁️</span>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+        <div id="login-error" class="error-message"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: CAMBIO DE CONTRASEÑA OBLIGATORIO -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="force-password-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h2 style="margin-bottom: var(--spacing-sm);">🔑 Cambia tu contraseña</h2>
+      <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg); font-size: var(--font-size-sm);">
+        Es tu primer inicio de sesión. Por seguridad, debes crear tu propia contraseña.
+      </p>
+      <form id="force-password-form">
+        <div class="form-group">
+          <label>Nueva contraseña</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="force-new-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+            <button type="button" class="password-toggle" data-target="force-new-password">
+              <span class="eye-icon">👁️</span>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Confirmar contraseña</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="force-confirm-password" required minlength="6" placeholder="Repite la contraseña">
+            <button type="button" class="password-toggle" data-target="force-confirm-password">
+              <span class="eye-icon">👁️</span>
+            </button>
+          </div>
+        </div>
+        <div id="force-password-error" class="error-message"></div>
+        <button type="submit" class="btn btn-primary btn-block">Guardar contraseña</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PANTALLA PRINCIPAL (APP) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="app-screen" class="screen" style="display: none;">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1>🏆 Polla 2026</h1>
+        <div class="header-actions">
+          <span id="user-name" class="user-name"></span>
+          <button id="logout-btn" class="btn btn-secondary btn-sm">Salir</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="app-nav">
+      <button class="nav-item active" data-view="predictions">
+        <span class="nav-icon">⚽</span>
+        <span class="nav-label">Predicciones</span>
+      </button>
+      <button class="nav-item" data-view="groups">
+        <span class="nav-icon">🌍</span>
+        <span class="nav-label">Grupos</span>
+      </button>
+      <button class="nav-item" data-view="leaderboard">
+        <span class="nav-icon">🏆</span>
+        <span class="nav-label">Tabla</span>
+      </button>
+      <button class="nav-item" data-view="profile">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label">Perfil</span>
+      </button>
+      <button id="admin-nav-item" class="nav-item" data-view="admin" style="display: none;">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Admin</span>
+      </button>
+      <button class="nav-item" data-view="policies">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Políticas</span>
+      </button>
+    </nav>
+
+    <!-- Content -->
+    <main class="app-content">
+      <!-- Vista: Predicciones -->
+      <div id="predictions-view" class="view active">
+        <div class="view-header">
+          <h2>Mis Predicciones</h2>
+          <div id="deadline-info" class="deadline-info"></div>
+        </div>
+        <div id="predictions-content" class="predictions-grid"></div>
+      </div>
+
+      <!-- Vista: Grupos del Mundial -->
+      <div id="groups-view" class="view">
+        <div class="view-header">
+          <h2>Grupos del Mundial 2026</h2>
+        </div>
+        <div id="groups-content"></div>
+      </div>
+
+      <!-- Vista: Tabla de Posiciones -->
+      <div id="leaderboard-view" class="view">
+        <div class="view-header">
+          <h2>Tabla de Posiciones</h2>
+        </div>
+        <div id="leaderboard-content"></div>
+      </div>
+
+      <!-- Vista: Perfil -->
+      <div id="profile-view" class="view">
+        <div class="view-header">
+          <h2>Mi Perfil</h2>
+        </div>
+        <div id="profile-content"></div>
+      </div>
+
+      <!-- Vista: Admin -->
+      <div id="admin-view" class="view">
+        <div class="view-header">
+          <h2>Panel de Administración</h2>
+        </div>
+        <div id="admin-content"></div>
+      </div>
+
+      <!-- Vista: Políticas -->
+      <div id="policies-view" class="view">
+        <div class="view-header">
+          <h2>Políticas de Participación</h2>
+        </div>
+        <div id="policies-content" class="policies-content">
+
+          <div class="policy-section">
+            <h3>1. Inscripción y Costo</h3>
+            <ul>
+              <li>El valor de la inscripción es de <strong>$100</strong> por participante, más un fee administrativo de <strong>$5</strong>.</li>
+              <li>El pago debe realizarse hasta el <strong>10 de junio de 2026 hasta las 11:00 pm</strong>.</li>
+            </ul>
+          </div>
+
+          <div class="policy-section">
+            <h3>2. Puntuación</h3>
+            <ul>
+              <li>Acierto de ganador o empate: <strong>2 puntos</strong></li>
+              <li>Acierto de marcador del partido: <strong>1 punto adicional</strong></li>
+              <li>No acierto de ganador o empate: <strong>0 puntos</strong></li>
+              <li>Acierto de Campeón: <strong>3 puntos adicionales</strong> al acumulado general</li>
+              <li>Acierto del segundo y tercer puesto: <strong>2 puntos adicionales</strong> al acumulado general</li>
+            </ul>
+          </div>
+
+          <div class="policy-section">
+            <h3>3. Fechas y Horarios para Envío de Resultados</h3>
+            <ul>
+              <li>Fecha de Grupos: <strong>10 de junio de 2026 hasta las 11:00 pm</strong></li>
+              <li>Dieciseisavos de Final: <strong>27 de junio de 2026 hasta las 11:00 pm</strong></li>
+              <li>Octavos de Final: <strong>3 de julio de 2026 hasta las 11:00 pm</strong></li>
+              <li>Cuartos de Final: <strong>8 de julio de 2026 hasta las 11:00 pm</strong></li>
+              <li>Semifinal: <strong>13 de julio de 2026 hasta las 11:00 pm</strong></li>
+              <li>Tercer y Cuarto Puesto: <strong>17 de julio de 2026 hasta las 11:00 pm</strong></li>
+              <li>Final: <strong>18 de julio de 2026 hasta las 11:00 pm</strong></li>
+              <li>Pronóstico de campeón, subcampeón y tercer puesto: <strong>10 de junio de 2026 hasta las 11:00 pm</strong></li>
+            </ul>
+          </div>
+
+          <div class="policy-section">
+            <h3>4. Premios</h3>
+            <ul>
+              <li><strong>70%</strong> del total recaudado: Primer Lugar</li>
+              <li><strong>20%</strong> del total recaudado: Segundo Lugar</li>
+              <li><strong>5%</strong> del total recaudado: Tercer Lugar</li>
+              <li><strong>5%</strong> del total recaudado: Acierto de Goleador <em>(si nadie acierta, el 5% irá al Primer Lugar)</em></li>
+            </ul>
+          </div>
+
+          <div class="policy-section">
+            <h3>5. Definición de Ganadores</h3>
+            <ul>
+              <li>Los ganadores se definirán por el que haga la mayor cantidad de puntos al final del torneo.</li>
+              <li>En caso de empate en puntos, se aplicarán los siguientes criterios de desempate:
+                <ul>
+                  <li>Mayor cantidad de aciertos de marcador exacto</li>
+                  <li>Mayor cantidad de aciertos de ganador o empate</li>
+                </ul>
+              </li>
+              <li>Si hay 2 o más ganadores empatados, el premio se dividirá en partes iguales entre los ganadores.</li>
+            </ul>
+          </div>
+
+          <div class="policy-section">
+            <h3>6. Envío de Resultados</h3>
+            <ul>
+              <li>Los resultados deben enviarse al organizador de la polla antes de las fechas y horarios establecidos.</li>
+              <li>Los resultados enviados después de la fecha límite no serán considerados.</li>
+            </ul>
+          </div>
+
+          <div class="policy-section">
+            <h3>7. Goleador</h3>
+            <ul>
+              <li>Los participantes deben enviar su predicción de goleador junto con los resultados de la Fecha de Grupos.</li>
+              <li>El participante que acierta el goleador recibe el <strong>5%</strong> del total recaudado.</li>
+            </ul>
+          </div>
+
+          <div class="policy-section">
+            <h3>8. Disposiciones Finales</h3>
+            <ul>
+              <li>El organizador de la polla se reserva el derecho de modificar o interpretar estas políticas en caso de necesidad.</li>
+              <li>La participación en la polla implica la aceptación de estas políticas.</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/predictions.js"></script>
+  <script src="/js/groups.js"></script>
+  <script src="/js/leaderboard.js"></script>
+  <script src="/js/profile.js"></script>
+  <script src="/js/admin.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
