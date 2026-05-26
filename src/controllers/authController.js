@@ -128,10 +128,42 @@ const setFirstPassword = async (req, res, next) => {
   }
 };
 
+/**
+ * PUT /auth/profile
+ * Actualiza el perfil del usuario autenticado (nombre, telefono)
+ */
+const updateProfile = async (req, res, next) => {
+  try {
+    const { nombre, telefono } = req.body;
+    logger.info('Endpoint: PUT /auth/profile', { userId: req.user.id });
+
+    const userRepository = require('../repositories/userRepository');
+    const updates = {};
+    if (nombre !== undefined) {
+      if (!nombre || nombre.trim().length < 2) {
+        return res.status(400).json({ success: false, error: { message: 'El nombre debe tener al menos 2 caracteres' } });
+      }
+      updates.nombre = nombre.trim();
+    }
+    if (telefono !== undefined) updates.telefono = telefono || null;
+
+    const user = await userRepository.update(req.user.id, updates);
+
+    res.status(200).json({
+      success: true,
+      message: 'Perfil actualizado exitosamente',
+      data: user,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
   getProfile,
   changePassword,
   setFirstPassword,
+  updateProfile,
 };

@@ -23,4 +23,7 @@ router.post('/change-password', authenticate, authController.changePassword);
 // POST /api/auth/set-password  (requiere autenticación - primer login)
 router.post('/set-password', authenticate, authController.setFirstPassword);
 
+// PUT /api/auth/profile  (requiere autenticación - actualizar perfil propio)
+router.put('/profile', authenticate, authController.updateProfile);
+
 module.exports = router;

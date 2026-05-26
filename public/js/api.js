@@ -70,6 +70,13 @@ class APIClient {
     return this.request('/auth/profile');
   }
 
+  async updateProfile(data) {
+    return this.request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async changePassword(oldPassword, newPassword) {
     return this.request('/auth/change-password', {
       method: 'POST',

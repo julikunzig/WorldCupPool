@@ -51,7 +51,7 @@ Todas las dependencias se instalan automáticamente con `npm install`.
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/TU_USUARIO/WorldCupPool.git
+git clone https://github.com/julikunzig/WorldCupPool.git
 cd WorldCupPool
 ```
 
