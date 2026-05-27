@@ -40,11 +40,14 @@ class APIClient {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Error en la petición');
+        throw new Error(data.error?.message || data.message || 'Error en la petición');
       }
 
       return data;
     } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new Error('Demasiadas peticiones. Espera un momento e intenta de nuevo.');
+      }
       console.error('API Error:', error);
       throw error;
     }
@@ -109,6 +112,10 @@ class APIClient {
     return this.request('/matches/knockout/phases');
   }
 
+  async getPublishedPhases() {
+    return this.request('/matches/knockout/published');
+  }
+
   async getMatchesByStage(stage) {
     return this.request(`/matches/knockout/${stage}`);
   }
@@ -120,9 +127,10 @@ class APIClient {
     });
   }
 
-  async publishKnockoutPhase(stage) {
+  async publishKnockoutPhase(stage, predictionDeadline) {
     return this.request(`/matches/knockout/${stage}/publish`, {
       method: 'POST',
+      body: JSON.stringify({ prediction_deadline: predictionDeadline }),
     });
   }
 

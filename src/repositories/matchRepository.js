@@ -136,24 +136,37 @@ const findFinished = async () => {
 const getKnockoutPhases = async () => {
   const result = await query(
     `SELECT kp.id, kp.stage, kp.label, kp.match_count, kp.published,
+            kp.prediction_deadline,
             COUNT(m.id)                               AS created_count,
             COUNT(CASE WHEN m.is_finished THEN 1 END) AS finished_count
      FROM knockout_phases kp
      LEFT JOIN matches m ON m.stage = kp.stage
-     GROUP BY kp.id, kp.stage, kp.label, kp.match_count, kp.published
+     GROUP BY kp.id, kp.stage, kp.label, kp.match_count, kp.published, kp.prediction_deadline
      ORDER BY kp.id ASC`
   );
   return result.rows;
 };
 
-/** Publicar una fase en knockout_phases */
-const publishKnockoutPhase = async (stage) => {
+/** Publicar una fase en knockout_phases con fecha límite */
+const publishKnockoutPhase = async (stage, predictionDeadline) => {
   await query(
-    `UPDATE knockout_phases SET published = TRUE WHERE stage = $1`,
-    [stage]
+    `UPDATE knockout_phases
+     SET published = TRUE, prediction_deadline = COALESCE($2, prediction_deadline)
+     WHERE stage = $1`,
+    [stage, predictionDeadline || null]
   );
   const count = await publishStage(stage);
   return count;
+};
+
+/** Actualizar solo la fecha límite de una fase */
+const updatePhaseDeadline = async (stage, predictionDeadline) => {
+  const result = await query(
+    `UPDATE knockout_phases SET prediction_deadline = $1 WHERE stage = $2
+     RETURNING stage, label, prediction_deadline`,
+    [predictionDeadline, stage]
+  );
+  return result.rows[0];
 };
 
 module.exports = {
@@ -167,6 +180,7 @@ module.exports = {
   createKnockout,
   publishStage,
   publishKnockoutPhase,
+  updatePhaseDeadline,
   updateRealScore,
   findFinished,
   getKnockoutPhases,

@@ -69,6 +69,32 @@ const getAllMatchesAdmin = async (req, res, next) => {
 };
 
 /**
+ * GET /matches/knockout/published
+ * Obtiene las fases eliminatorias publicadas (para usuarios)
+ */
+const getPublishedPhases = async (req, res, next) => {
+  try {
+    const { query } = require('../config/database');
+    // Usar COALESCE para manejar que prediction_deadline puede no existir aún
+    const result = await query(
+      `SELECT stage, label,
+              CASE WHEN column_name IS NOT NULL THEN prediction_deadline ELSE NULL END as prediction_deadline
+       FROM knockout_phases
+       LEFT JOIN (
+         SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'knockout_phases' AND column_name = 'prediction_deadline'
+       ) cols ON TRUE
+       WHERE published = TRUE
+       ORDER BY id ASC`
+    );
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    // Si falla, devolver array vacío para no romper el frontend
+    res.status(200).json({ success: true, data: [] });
+  }
+};
+
+/**
  * GET /matches/knockout/phases
  * Obtiene el estado de las fases eliminatorias
  */
@@ -121,14 +147,15 @@ const createKnockoutMatch = async (req, res, next) => {
 
 /**
  * POST /matches/knockout/:stage/publish
- * Publica todos los partidos de una fase (admin)
+ * Publica todos los partidos de una fase (admin) con fecha límite opcional
  */
 const publishKnockoutPhase = async (req, res, next) => {
   try {
     const { stage } = req.params;
+    const { prediction_deadline } = req.body;
     logger.info('Endpoint: POST /matches/knockout/:stage/publish', { adminId: req.user.id, stage });
 
-    const count = await matchRepository.publishKnockoutPhase(stage);
+    const count = await matchRepository.publishKnockoutPhase(stage, prediction_deadline || null);
     res.status(200).json({
       success: true,
       message: `${count} partidos publicados para la fase ${stage}`,
@@ -224,6 +251,60 @@ const getMatchPredictions = async (req, res, next) => {
   }
 };
 
+/**
+ * PUT /matches/knockout/:stage/deadline  (admin)
+ * Actualiza la fecha límite de predicciones de una fase
+ */
+const updatePhaseDeadline = async (req, res, next) => {
+  try {
+    const { stage } = req.params;
+    const { prediction_deadline } = req.body;
+    logger.info('Endpoint: PUT /matches/knockout/:stage/deadline', { adminId: req.user.id, stage });
+
+    if (!prediction_deadline) {
+      return res.status(400).json({ success: false, error: { message: 'prediction_deadline es requerido' } });
+    }
+
+    const result = await matchRepository.updatePhaseDeadline(stage, prediction_deadline);
+    res.status(200).json({ success: true, message: 'Fecha límite actualizada', data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PUT /matches/knockout/:matchId/edit  (admin)
+ * Edita equipos y fecha de un partido eliminatorio
+ */
+const editKnockoutMatch = async (req, res, next) => {
+  try {
+    const { matchId } = req.params;
+    const { home_team_id, away_team_id, match_date } = req.body;
+    logger.info('Endpoint: PUT /matches/knockout/:matchId/edit', { adminId: req.user.id, matchId });
+
+    if (home_team_id === away_team_id) {
+      return res.status(400).json({ success: false, error: { message: 'Los equipos deben ser diferentes' } });
+    }
+
+    const { query } = require('../config/database');
+    const result = await query(
+      `UPDATE matches
+       SET home_team_id = $1, away_team_id = $2, match_date = $3
+       WHERE id = $4
+       RETURNING id`,
+      [home_team_id, away_team_id, match_date, parseInt(matchId)]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: { message: 'Partido no encontrado' } });
+    }
+
+    res.status(200).json({ success: true, message: 'Partido actualizado' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAllMatches,
   getAllMatchesAdmin,
@@ -232,8 +313,11 @@ module.exports = {
   getMatchesByStage,
   getGroupsWithTeams,
   getKnockoutPhases,
+  getPublishedPhases,
   createKnockoutMatch,
   publishKnockoutPhase,
+  updatePhaseDeadline,
+  editKnockoutMatch,
   updateRealScore,
   getMatchPredictions,
 };

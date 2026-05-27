@@ -48,20 +48,20 @@ app.use(
   })
 );
 
-// Rate limiting: prevenir abuso
+// Rate limiting: prevenir abuso (solo para usuarios normales, límite alto para admin)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requests por IP
+  max: 500, // máximo 500 requests por IP
   message: 'Demasiadas peticiones desde esta IP, intenta de nuevo más tarde',
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
-// Rate limiting más estricto para autenticación
+// Rate limiting más estricto solo para autenticación
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 20,
   message: 'Demasiados intentos de login, intenta de nuevo más tarde',
 });
 app.use('/api/auth/login', authLimiter);

@@ -470,8 +470,60 @@ body {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .predictions-grid {
+  display: block;
+}
+
+.predictions-grid .phase-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 4px;
+  margin-bottom: var(--spacing-md);
+  scrollbar-width: none;
+}
+
+.predictions-grid .phase-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+#phase-content {
   display: grid;
   gap: var(--spacing-md);
+}
+
+#phase-content.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+#phase-content.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+#phase-content.cols-1 {
+  grid-template-columns: 1fr;
+  max-width: 480px;
+}
+
+/* En móvil siempre 1 columna */
+@media (max-width: 600px) {
+  #phase-content.cols-3,
+  #phase-content.cols-2,
+  #phase-content.cols-1 {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+  }
+}
+
+/* Inputs numéricos: ocultar flechas y bloquear letras */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 }
 
 .match-card {
@@ -709,7 +761,8 @@ body {
     display: block;
   }
   
-  .predictions-grid {
+  .predictions-grid,
+  #phase-content {
     grid-template-columns: repeat(2, 1fr);
   }
   
@@ -723,7 +776,8 @@ body {
 }
 
 @media (min-width: 1024px) {
-  .predictions-grid {
+  .predictions-grid,
+  #phase-content {
     grid-template-columns: repeat(3, 1fr);
   }
   
@@ -901,4 +955,46 @@ body {
 .policy-section ul ul li::before {
   content: '–';
   color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABS DE FASES (predicciones)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.phase-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  scrollbar-width: none;
+}
+
+.phase-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.phase-tab {
+  flex-shrink: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.phase-tab:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.phase-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
 }

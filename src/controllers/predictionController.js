@@ -15,16 +15,32 @@ const getMyPredictions = async (req, res, next) => {
   try {
     logger.info('Endpoint: GET /predictions/my', { userId: req.user.id });
 
+    const { query } = require('../config/database');
+
     const predictions = await predictionService.getUserPredictions(req.user.id);
-    const canEdit = await predictionService.canEditPredictions();
-    const deadline = await predictionService.getDeadline();
+    const globalDeadline = await predictionService.getGlobalDeadline();
+    const canEditGlobal = new Date() < new Date(globalDeadline);
+
+    // Intentar obtener deadlines por fase (puede fallar si la columna no existe)
+    let phaseDeadlines = {};
+    try {
+      const phasesResult = await query(
+        `SELECT stage, prediction_deadline FROM knockout_phases WHERE published = TRUE`
+      );
+      phasesResult.rows.forEach(r => {
+        if (r.prediction_deadline) phaseDeadlines[r.stage] = r.prediction_deadline;
+      });
+    } catch {
+      // Si falla, usar solo el deadline global
+    }
 
     res.status(200).json({
       success: true,
       data: {
         predictions,
-        canEdit,
-        deadline,
+        canEdit: canEditGlobal,
+        deadline: globalDeadline,
+        phaseDeadlines,
       },
     });
   } catch (err) {

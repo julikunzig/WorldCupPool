@@ -14,24 +14,68 @@ const { NotFoundError, ConflictError } = require('../utils/errors');
 const { logAudit } = require('../middleware/audit');
 
 /**
- * Verifica si el usuario puede editar predicciones (lee de DB)
+ * Verifica si el usuario puede editar predicciones para un partido específico
+ * Considera la fase del partido y su deadline específico
  */
-const canEditPredictions = async () => {
+const canEditPredictions = async (matchId) => {
   try {
+    // Si se pasa un matchId, verificar deadline de la fase específica
+    if (matchId) {
+      const { query } = require('../config/database');
+      const result = await query(
+        `SELECT m.stage, kp.prediction_deadline, m.match_date
+         FROM matches m
+         LEFT JOIN knockout_phases kp ON kp.stage = m.stage
+         WHERE m.id = $1`,
+        [matchId]
+      );
+      if (result.rows.length > 0) {
+        const row = result.rows[0];
+        // Para eliminatorias, usar deadline de la fase
+        if (row.stage !== 'group' && row.prediction_deadline) {
+          return new Date() < new Date(row.prediction_deadline);
+        }
+      }
+    }
+    // Para grupos o fallback: usar setting global
     const setting = await settingsRepository.get('prediction_deadline');
     const deadline = new Date(setting ? setting.value : (process.env.PREDICTION_DEADLINE || '2026-06-10T23:59:00'));
     return new Date() < deadline;
   } catch {
-    // Fallback al .env si falla la DB
     const deadline = new Date(process.env.PREDICTION_DEADLINE || '2026-06-10T23:59:00');
     return new Date() < deadline;
   }
 };
 
 /**
- * Obtiene la fecha límite actual
+ * Obtiene la fecha límite para un partido específico
  */
-const getDeadline = async () => {
+const getDeadline = async (matchId) => {
+  try {
+    if (matchId) {
+      const { query } = require('../config/database');
+      const result = await query(
+        `SELECT m.stage, kp.prediction_deadline
+         FROM matches m
+         LEFT JOIN knockout_phases kp ON kp.stage = m.stage
+         WHERE m.id = $1`,
+        [matchId]
+      );
+      if (result.rows.length > 0 && result.rows[0].stage !== 'group' && result.rows[0].prediction_deadline) {
+        return result.rows[0].prediction_deadline;
+      }
+    }
+    const setting = await settingsRepository.get('prediction_deadline');
+    return setting ? setting.value : (process.env.PREDICTION_DEADLINE || '2026-06-10T23:59:00');
+  } catch {
+    return process.env.PREDICTION_DEADLINE || '2026-06-10T23:59:00';
+  }
+};
+
+/**
+ * Obtiene la fecha límite global (para fase de grupos)
+ */
+const getGlobalDeadline = async () => {
   try {
     const setting = await settingsRepository.get('prediction_deadline');
     return setting ? setting.value : (process.env.PREDICTION_DEADLINE || '2026-06-10T23:59:00');
@@ -47,7 +91,7 @@ const createPrediction = async (userId, matchId, homeGoals, awayGoals, clientInf
   logger.info('Creando predicción', { userId, matchId });
 
   // Verificar deadline
-  if (!await canEditPredictions()) {
+  if (!await canEditPredictions(matchId)) {
     throw new ConflictError('La fecha límite para hacer predicciones ha pasado');
   }
 
@@ -93,7 +137,7 @@ const updatePrediction = async (userId, predictionId, homeGoals, awayGoals, clie
   logger.info('Actualizando predicción', { userId, predictionId });
 
   // Verificar deadline
-  if (!await canEditPredictions()) {
+  if (!await canEditPredictions(prediction.match_id)) {
     throw new ConflictError('La fecha límite para editar predicciones ha pasado');
   }
 
@@ -278,5 +322,6 @@ module.exports = {
   getUserPosition,
   canEditPredictions,
   getDeadline,
+  getGlobalDeadline,
   calculatePoints,
 };
