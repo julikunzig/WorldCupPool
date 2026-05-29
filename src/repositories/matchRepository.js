@@ -134,17 +134,35 @@ const findFinished = async () => {
 
 /** Obtener fases eliminatorias con su estado */
 const getKnockoutPhases = async () => {
-  const result = await query(
-    `SELECT kp.id, kp.stage, kp.label, kp.match_count, kp.published,
-            kp.prediction_deadline,
-            COUNT(m.id)                               AS created_count,
-            COUNT(CASE WHEN m.is_finished THEN 1 END) AS finished_count
-     FROM knockout_phases kp
-     LEFT JOIN matches m ON m.stage = kp.stage
-     GROUP BY kp.id, kp.stage, kp.label, kp.match_count, kp.published, kp.prediction_deadline
-     ORDER BY kp.id ASC`
-  );
-  return result.rows;
+  try {
+    const result = await query(
+      `SELECT kp.id, kp.stage, kp.label, kp.match_count, kp.published,
+              kp.prediction_deadline,
+              COUNT(m.id)                               AS created_count,
+              COUNT(CASE WHEN m.is_finished THEN 1 END) AS finished_count
+       FROM knockout_phases kp
+       LEFT JOIN matches m ON m.stage = kp.stage
+       GROUP BY kp.id, kp.stage, kp.label, kp.match_count, kp.published, kp.prediction_deadline
+       ORDER BY kp.id ASC`
+    );
+    return result.rows;
+  } catch (err) {
+    // Si prediction_deadline no existe, consultar sin esa columna
+    if (err.message && err.message.includes('prediction_deadline')) {
+      const result = await query(
+        `SELECT kp.id, kp.stage, kp.label, kp.match_count, kp.published,
+                NULL AS prediction_deadline,
+                COUNT(m.id)                               AS created_count,
+                COUNT(CASE WHEN m.is_finished THEN 1 END) AS finished_count
+         FROM knockout_phases kp
+         LEFT JOIN matches m ON m.stage = kp.stage
+         GROUP BY kp.id, kp.stage, kp.label, kp.match_count, kp.published
+         ORDER BY kp.id ASC`
+      );
+      return result.rows;
+    }
+    throw err;
+  }
 };
 
 /** Publicar una fase en knockout_phases con fecha límite */
