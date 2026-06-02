@@ -39,6 +39,7 @@ function renderAdminShell() {
       <button class="admin-tab" data-tab="users"     onclick="switchAdminTab('users')">👥 Usuarios</button>
       <button class="admin-tab" data-tab="knockout"  onclick="switchAdminTab('knockout')">🏆 Eliminatorias</button>
       <button class="admin-tab" data-tab="scores"    onclick="switchAdminTab('scores')">⚽ Resultados</button>
+      <button class="admin-tab" data-tab="special"   onclick="switchAdminTab('special')">🎯 Especiales</button>
       <button class="admin-tab" data-tab="report"    onclick="switchAdminTab('report')">📊 Reporte</button>
       <button class="admin-tab" data-tab="config"    onclick="switchAdminTab('config')">⚙️ Config</button>
     </div>
@@ -54,6 +55,7 @@ function switchAdminTab(tab) {
   if      (tab === 'users')    renderUsersTab();
   else if (tab === 'knockout') renderKnockoutTab();
   else if (tab === 'scores')   renderScoresTab();
+  else if (tab === 'special')  renderAdminSpecialTab();
   else if (tab === 'report')   renderReportTab();
   else                         renderConfigTab();
 }
@@ -992,6 +994,123 @@ async function handlePublishPhase(stage) {
     const res = await api.publishKnockoutPhase(stage, deadline);
     showToast(res.message, 'success');
     await renderKnockoutTab();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    hideLoader();
+  }
+}
+
+// ── Tab: Especiales (admin) ───────────────────────────────────────────────────
+
+async function renderAdminSpecialTab() {
+  const content = document.getElementById('admin-tab-content');
+  content.innerHTML = '<p style="color:var(--text-secondary);">Cargando...</p>';
+
+  try {
+    const [teamsRes, resultsRes, allSpecialRes] = await Promise.all([
+      api.getGroupsWithTeams(),
+      api.getSpecialResults(),
+      api.getAllSpecial(),
+    ]);
+
+    const teams   = teamsRes.data.flatMap(g => g.teams).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    const results = resultsRes.data;
+    const allPred = allSpecialRes.data;
+
+    const makeSelect = (id, selectedId) => `
+      <select id="${id}" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:var(--radius-md);">
+        <option value="">Seleccionar equipo...</option>
+        ${teams.map(t => `<option value="${t.id}" ${t.id === selectedId ? 'selected' : ''}>${t.flag} ${t.name}</option>`).join('')}
+      </select>
+    `;
+
+    content.innerHTML = `
+      <!-- Registrar resultados reales del torneo -->
+      <div style="background:var(--surface); padding:var(--spacing-lg); border-radius:var(--radius-lg); border:1px solid var(--border); margin-bottom:var(--spacing-xl);">
+        <h3 style="margin-bottom:var(--spacing-md);">Registrar Resultados del Torneo</h3>
+        <p style="color:var(--text-secondary); font-size:var(--font-size-sm); margin-bottom:var(--spacing-lg);">
+          Al guardar, el sistema calculará automáticamente los puntos bonus de todos los usuarios.
+        </p>
+        <form onsubmit="handleSaveAdminSpecialResults(event)">
+          <div class="form-group">
+            <label>⚽ Goleador del Mundial</label>
+            <input type="text" id="admin-special-goleador" value="${results?.goleador || ''}"
+              placeholder="Nombre del goleador">
+          </div>
+          <div class="form-group">
+            <label>🏆 Equipo Campeón</label>
+            ${makeSelect('admin-special-champion', results?.champion)}
+          </div>
+          <div class="form-group">
+            <label>🥈 Equipo Subcampeón</label>
+            ${makeSelect('admin-special-runner-up', results?.runner_up)}
+          </div>
+          <div class="form-group">
+            <label>🥉 Equipo Tercer Lugar</label>
+            ${makeSelect('admin-special-third', results?.third_place)}
+          </div>
+          <button type="submit" class="btn btn-primary">Guardar y Calcular Puntos</button>
+        </form>
+      </div>
+
+      <!-- Pronósticos de todos los usuarios -->
+      <div style="background:var(--surface); padding:var(--spacing-lg); border-radius:var(--radius-lg); border:1px solid var(--border);">
+        <h3 style="margin-bottom:var(--spacing-md);">Pronósticos de Participantes (${allPred.length})</h3>
+        ${allPred.length === 0 ? '<p style="color:var(--text-secondary);">Ningún usuario ha ingresado pronósticos especiales.</p>' : `
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:var(--font-size-sm);">
+              <thead>
+                <tr style="background:var(--background);">
+                  <th style="padding:8px 12px; text-align:left; font-weight:600; border-bottom:2px solid var(--border);">Usuario</th>
+                  <th style="padding:8px 12px; text-align:left; font-weight:600; border-bottom:2px solid var(--border);">Goleador</th>
+                  <th style="padding:8px 12px; text-align:left; font-weight:600; border-bottom:2px solid var(--border);">Campeón</th>
+                  <th style="padding:8px 12px; text-align:left; font-weight:600; border-bottom:2px solid var(--border);">Subcampeón</th>
+                  <th style="padding:8px 12px; text-align:left; font-weight:600; border-bottom:2px solid var(--border);">3er Lugar</th>
+                  <th style="padding:8px 12px; text-align:center; font-weight:600; border-bottom:2px solid var(--border);">Bonus</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allPred.map(p => `
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:8px 12px;"><strong>${p.nombre}</strong></td>
+                    <td style="padding:8px 12px;">${p.goleador || '—'}</td>
+                    <td style="padding:8px 12px;">${p.champion_flag ? p.champion_flag + ' ' + p.champion_name : '—'}</td>
+                    <td style="padding:8px 12px;">${p.runner_up_flag ? p.runner_up_flag + ' ' + p.runner_up_name : '—'}</td>
+                    <td style="padding:8px 12px;">${p.third_place_flag ? p.third_place_flag + ' ' + p.third_place_name : '—'}</td>
+                    <td style="padding:8px 12px; text-align:center; font-weight:700; color:${p.total_bonus > 0 ? 'var(--success)' : 'var(--text-secondary)'};">
+                      ${p.total_bonus}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    `;
+  } catch (err) {
+    content.innerHTML = `<p style="color:var(--danger);">Error: ${err.message}</p>`;
+  }
+}
+
+async function handleSaveAdminSpecialResults(event) {
+  event.preventDefault();
+
+  const data = {
+    goleador:    document.getElementById('admin-special-goleador').value.trim(),
+    champion:    parseInt(document.getElementById('admin-special-champion').value) || null,
+    runner_up:   parseInt(document.getElementById('admin-special-runner-up').value) || null,
+    third_place: parseInt(document.getElementById('admin-special-third').value) || null,
+  };
+
+  if (!confirm('¿Guardar los resultados del torneo? Esto calculará los puntos bonus de todos los usuarios.')) return;
+
+  try {
+    showLoader();
+    const res = await api.saveSpecialResults(data);
+    showToast(res.message, 'success');
+    await renderAdminSpecialTab();
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
   } finally {

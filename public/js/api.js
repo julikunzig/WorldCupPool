@@ -239,6 +239,34 @@ class APIClient {
       body: JSON.stringify({ value }),
     });
   }
+
+  // ─── Special Predictions ───────────────────────────────────────────────────
+
+  async getMySpecial() {
+    return this.request('/special/my');
+  }
+
+  async saveMySpecial(data) {
+    return this.request('/special/my', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSpecialResults() {
+    return this.request('/special/results');
+  }
+
+  async saveSpecialResults(data) {
+    return this.request('/special/results', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAllSpecial() {
+    return this.request('/special/all');
+  }
 }
 
 // Instancia global

@@ -24,6 +24,7 @@ const matchRoutes = require('./routes/matchRoutes');
 const predictionRoutes = require('./routes/predictionRoutes');
 const userRoutes = require('./routes/userRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const specialRoutes = require('./routes/specialRoutes');
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/predictions', predictionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/special', specialRoutes);
 
 // ─── Ruta catch-all para SPA ──────────────────────────────────────────────────
 

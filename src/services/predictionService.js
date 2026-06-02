@@ -284,23 +284,28 @@ const getLeaderboard = async () => {
     `SELECT 
        u.id, u.nombre, u.username, u.email,
        COUNT(DISTINCT p.match_id) as matches_predicted,
-       SUM(p.total_points) as total_points,
+       COALESCE(SUM(p.total_points), 0) as match_points,
+       COALESCE(sp.total_bonus, 0) as bonus_points,
+       COALESCE(SUM(p.total_points), 0) + COALESCE(sp.total_bonus, 0) as total_points,
        SUM(CASE WHEN p.points_winner = 2 THEN 1 ELSE 0 END) as correct_winners,
        SUM(CASE WHEN p.points_score = 1 THEN 1 ELSE 0 END) as correct_scores
      FROM users u
      LEFT JOIN predictions p ON u.id = p.user_id
+     LEFT JOIN special_predictions sp ON u.id = sp.user_id
      WHERE u.is_active = TRUE AND u.role != 'admin'
-     GROUP BY u.id, u.nombre, u.username, u.email
-     ORDER BY total_points DESC NULLS LAST, u.nombre ASC`
+     GROUP BY u.id, u.nombre, u.username, u.email, sp.total_bonus
+     ORDER BY total_points DESC NULLS LAST, correct_scores DESC NULLS LAST, correct_winners DESC NULLS LAST, u.nombre ASC`
   );
 
   return result.rows.map((row, index) => ({
     position: index + 1,
     ...row,
-    total_points: row.total_points || 0,
-    matches_predicted: row.matches_predicted || 0,
-    correct_winners: row.correct_winners || 0,
-    correct_scores: row.correct_scores || 0,
+    total_points: parseInt(row.total_points) || 0,
+    match_points: parseInt(row.match_points) || 0,
+    bonus_points: parseInt(row.bonus_points) || 0,
+    matches_predicted: parseInt(row.matches_predicted) || 0,
+    correct_winners: parseInt(row.correct_winners) || 0,
+    correct_scores: parseInt(row.correct_scores) || 0,
   }));
 };
 

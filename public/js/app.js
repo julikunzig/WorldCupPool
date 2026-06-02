@@ -67,6 +67,9 @@ function navigateTo(viewName) {
     case 'profile':
       loadProfile();
       break;
+    case 'special':
+      loadSpecial();
+      break;
     case 'admin':
       loadAdmin();
       break;
