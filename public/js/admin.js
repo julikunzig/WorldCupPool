@@ -1056,7 +1056,10 @@ async function renderAdminSpecialTab() {
 
       <!-- Pronósticos de todos los usuarios -->
       <div style="background:var(--surface); padding:var(--spacing-lg); border-radius:var(--radius-lg); border:1px solid var(--border);">
-        <h3 style="margin-bottom:var(--spacing-md);">Pronósticos de Participantes (${allPred.length})</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing-md); flex-wrap:wrap; gap:var(--spacing-sm);">
+          <h3 style="margin:0;">Pronósticos de Participantes (${allPred.length})</h3>
+          ${allPred.length > 0 ? `<button class="btn btn-primary btn-sm" onclick="exportSpecialCSV()">⬇️ Exportar CSV</button>` : ''}
+        </div>
         ${allPred.length === 0 ? '<p style="color:var(--text-secondary);">Ningún usuario ha ingresado pronósticos especiales.</p>' : `
           <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:var(--font-size-sm);">
@@ -1116,4 +1119,42 @@ async function handleSaveAdminSpecialResults(event) {
   } finally {
     hideLoader();
   }
+}
+
+// ── Exportar CSV de pronósticos especiales ────────────────────────────────────
+
+function exportSpecialCSV() {
+  // Obtener datos del DOM (la tabla ya está renderizada)
+  api.getAllSpecial().then(res => {
+    const rows = res.data;
+    if (!rows || rows.length === 0) return;
+
+    const headers = ['Usuario', 'Email', 'Goleador', 'Campeón', 'Subcampeón', 'Tercer Lugar', 'Pts Campeón', 'Pts Subcampeón', 'Pts 3er Lugar', 'Total Bonus'];
+
+    const csvRows = [
+      headers.join(','),
+      ...rows.map(r => [
+        `"${r.nombre}"`,
+        `"${r.email}"`,
+        `"${r.goleador || ''}"`,
+        `"${r.champion_name ? r.champion_flag + ' ' + r.champion_name : ''}"`,
+        `"${r.runner_up_name ? r.runner_up_flag + ' ' + r.runner_up_name : ''}"`,
+        `"${r.third_place_name ? r.third_place_flag + ' ' + r.third_place_name : ''}"`,
+        r.points_champion,
+        r.points_runner_up,
+        r.points_third,
+        r.total_bonus,
+      ].join(','))
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `reporte_especiales_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }).catch(err => {
+    showToast('Error al exportar: ' + err.message, 'error');
+  });
 }
