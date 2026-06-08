@@ -19,22 +19,24 @@ const { logAudit } = require('../middleware/audit');
  */
 const canEditPredictions = async (matchId) => {
   try {
-    // Si se pasa un matchId, verificar deadline de la fase específica
     if (matchId) {
-      const { query } = require('../config/database');
-      const result = await query(
-        `SELECT m.stage, kp.prediction_deadline, m.match_date
-         FROM matches m
-         LEFT JOIN knockout_phases kp ON kp.stage = m.stage
-         WHERE m.id = $1`,
-        [matchId]
-      );
-      if (result.rows.length > 0) {
-        const row = result.rows[0];
-        // Para eliminatorias, usar deadline de la fase
-        if (row.stage !== 'group' && row.prediction_deadline) {
-          return new Date() < new Date(row.prediction_deadline);
+      const { query: dbQuery } = require('../config/database');
+      try {
+        const result = await dbQuery(
+          `SELECT m.stage, kp.prediction_deadline, m.match_date
+           FROM matches m
+           LEFT JOIN knockout_phases kp ON kp.stage = m.stage
+           WHERE m.id = $1`,
+          [matchId]
+        );
+        if (result.rows.length > 0) {
+          const row = result.rows[0];
+          if (row.stage !== 'group' && row.prediction_deadline) {
+            return new Date() < new Date(row.prediction_deadline);
+          }
         }
+      } catch {
+        // Si falla la query (columna no existe), seguir con deadline global
       }
     }
     // Para grupos o fallback: usar setting global
@@ -136,15 +138,7 @@ const createPrediction = async (userId, matchId, homeGoals, awayGoals, clientInf
 const updatePrediction = async (userId, predictionId, homeGoals, awayGoals, clientInfo) => {
   logger.info('Actualizando predicción', { userId, predictionId });
 
-  // Verificar deadline
-  if (!await canEditPredictions(prediction.match_id)) {
-    throw new ConflictError('La fecha límite para editar predicciones ha pasado');
-  }
-
-  // Validar datos
-  validatePrediction({ home_goals: homeGoals, away_goals: awayGoals });
-
-  // Obtener predicción
+  // Obtener predicción primero
   const prediction = await predictionRepository.findById(predictionId);
   if (!prediction) {
     throw new NotFoundError('Predicción', predictionId);
@@ -155,9 +149,17 @@ const updatePrediction = async (userId, predictionId, homeGoals, awayGoals, clie
     throw new ConflictError('No puedes editar predicciones de otro usuario');
   }
 
+  // Verificar deadline
+  if (!await canEditPredictions(prediction.match_id)) {
+    throw new ConflictError('La fecha límite para editar predicciones ha pasado');
+  }
+
+  // Validar datos
+  validatePrediction({ home_goals: homeGoals, away_goals: awayGoals });
+
   // Verificar que el partido no ha comenzado
   const match = await matchRepository.findById(prediction.match_id);
-  if (new Date() > new Date(match.match_date)) {
+  if (match && new Date() > new Date(match.match_date)) {
     throw new ConflictError('No puedes editar predicciones para un partido que ya comenzó');
   }
 
