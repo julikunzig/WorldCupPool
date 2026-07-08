@@ -14,32 +14,50 @@ const { NotFoundError, ConflictError } = require('../utils/errors');
 const { logAudit } = require('../middleware/audit');
 
 /**
- * Verifica si el usuario puede editar predicciones para un partido específico
- * Considera la fase del partido y su deadline específico
+ * Verifica si el usuario puede editar predicciones para un partido específico.
+ *
+ * Regla:
+ *   canEdit = (now < phaseDeadline) AND (now < matchDate) AND (!isFinished)
+ *
+ * Es decir, aunque el deadline de la fase esté en el futuro, un partido que ya
+ * empezó (o cuya fecha ya pasó) queda bloqueado individualmente.
  */
 const canEditPredictions = async (matchId) => {
   try {
+    const now = new Date();
+
     if (matchId) {
       const { query: dbQuery } = require('../config/database');
       try {
         const result = await dbQuery(
-          `SELECT m.stage, kp.prediction_deadline, m.match_date
+          `SELECT m.stage, m.match_date, m.is_finished,
+                  kp.prediction_deadline AS phase_deadline
            FROM matches m
            LEFT JOIN knockout_phases kp ON kp.stage = m.stage
            WHERE m.id = $1`,
           [matchId]
         );
+
         if (result.rows.length > 0) {
           const row = result.rows[0];
-          if (row.stage !== 'group' && row.prediction_deadline) {
-            return new Date() < new Date(row.prediction_deadline);
+
+          // Regla común: el partido no puede haber empezado ni finalizado
+          if (row.is_finished) return false;
+          if (row.match_date && now >= new Date(row.match_date)) return false;
+
+          // Fase eliminatoria: además verificar deadline de la fase
+          if (row.stage !== 'group' && row.phase_deadline) {
+            return now < new Date(row.phase_deadline);
           }
+          // Fase de grupos: cae al deadline global más abajo, tras la validación
+          // por match_date que ya se hizo arriba.
         }
       } catch {
-        // Si falla la query (columna no existe), seguir con deadline global
+        // Si falla la query (columna no existe, etc.), continuar con deadline global
       }
     }
-    // Para grupos o fallback: usar setting global
+
+    // Deadline global (fase de grupos o fallback)
     const setting = await settingsRepository.get('prediction_deadline');
     const deadline = new Date(setting ? setting.value : (process.env.PREDICTION_DEADLINE || '2026-06-10T23:59:00'));
     return new Date() < deadline;

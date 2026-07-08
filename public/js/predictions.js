@@ -149,8 +149,11 @@ function renderPhaseContent(phase) {
   const matchCards = phaseMatches.map(match => {
     const prediction = myPredictions[match.id];
     const matchDate  = new Date(match.match_date);
-    const isPast     = new Date() > matchDate;
-    const isDisabled = !canEdit || isPast;
+    // Un partido queda bloqueado si ya empezó (fecha pasada), ya finalizó, o
+    // si el deadline de la fase venció. Aplica igual a fase de grupos y
+    // eliminatorias.
+    const isPast     = new Date() >= matchDate;
+    const isDisabled = !canEdit || isPast || match.is_finished;
 
     const phaseLabel = phase === 'group'
       ? `Grupo ${match.group_name} - Jornada ${match.jornada}`
@@ -203,6 +206,12 @@ function renderPhaseContent(phase) {
             Resultado real: ${match.real_home_goals} - ${match.real_away_goals} |
             Puntos: ${prediction.total_points}
             (${prediction.points_winner} ganador + ${prediction.points_score} marcador)
+          </div>
+        ` : ''}
+
+        ${isPast && !match.is_finished ? `
+          <div class="match-points" style="color:var(--warning); font-size:var(--font-size-xs); text-align:center; padding:4px 0;">
+            🔒 Este partido ya inició, no se aceptan predicciones.
           </div>
         ` : ''}
       </div>
