@@ -14,8 +14,11 @@ router.get('/leaderboard', authenticate, predictionController.getLeaderboard);
 // GET /api/predictions/leaderboard/me  (requiere autenticación)
 router.get('/leaderboard/me', authenticate, predictionController.getMyPosition);
 
-// GET /api/predictions/report  (solo admin)
+// GET /api/predictions/report  (solo admin) - detalle por partido (opcional ?stage=)
 router.get('/report', authenticate, requireAdmin, predictionController.getFullReport);
+
+// GET /api/predictions/report/summary  (solo admin) - consolidado por usuario/fase
+router.get('/report/summary', authenticate, requireAdmin, predictionController.getReportSummary);
 
 // GET /api/predictions/my  (requiere autenticación)
 router.get('/my', authenticate, predictionController.getMyPredictions);

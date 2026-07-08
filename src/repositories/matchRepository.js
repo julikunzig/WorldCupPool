@@ -165,8 +165,22 @@ const getKnockoutPhases = async () => {
   }
 };
 
+/**
+ * Asegura que la columna prediction_deadline exista.
+ * Ejecuta un ALTER TABLE idempotente para servidores donde la migración
+ * `migrate-phase-deadlines.js` nunca se corrió.
+ */
+const ensureDeadlineColumn = async () => {
+  try {
+    await query(`ALTER TABLE knockout_phases ADD COLUMN IF NOT EXISTS prediction_deadline TIMESTAMPTZ`);
+  } catch (err) {
+    logger.warn('No se pudo asegurar la columna prediction_deadline', { error: err.message });
+  }
+};
+
 /** Publicar una fase en knockout_phases con fecha límite */
 const publishKnockoutPhase = async (stage, predictionDeadline) => {
+  await ensureDeadlineColumn();
   await query(
     `UPDATE knockout_phases
      SET published = TRUE, prediction_deadline = COALESCE($2, prediction_deadline)
@@ -177,13 +191,35 @@ const publishKnockoutPhase = async (stage, predictionDeadline) => {
   return count;
 };
 
-/** Actualizar solo la fecha límite de una fase */
+/**
+ * Actualizar la fecha límite de una fase.
+ * Además auto-publica la fase si tiene al menos un partido creado, ya que la
+ * intención del admin al fijar la fecha es habilitar el formulario a los usuarios.
+ */
 const updatePhaseDeadline = async (stage, predictionDeadline) => {
-  const result = await query(
-    `UPDATE knockout_phases SET prediction_deadline = $1 WHERE stage = $2
-     RETURNING stage, label, prediction_deadline`,
-    [predictionDeadline, stage]
+  await ensureDeadlineColumn();
+
+  // Contar partidos creados para la fase
+  const cnt = await query(
+    `SELECT COUNT(*)::int AS n FROM matches WHERE stage = $1`,
+    [stage]
   );
+  const hasMatches = cnt.rows[0]?.n > 0;
+
+  const result = await query(
+    `UPDATE knockout_phases
+       SET prediction_deadline = $1,
+           published = CASE WHEN $3::boolean THEN TRUE ELSE published END
+     WHERE stage = $2
+     RETURNING stage, label, prediction_deadline, published`,
+    [predictionDeadline, stage, hasMatches]
+  );
+
+  // Si la fase quedó publicada, propagar el published=true a los partidos
+  if (hasMatches && result.rows[0]?.published) {
+    await publishStage(stage);
+  }
+
   return result.rows[0];
 };
 

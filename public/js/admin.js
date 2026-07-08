@@ -428,120 +428,290 @@ async function saveRealScore(matchId) {
 
 // ── Tab: Reporte ──────────────────────────────────────────────────────────────
 
+// ── Reporte: fases disponibles ────────────────────────────────────────────────
+
+const REPORT_PHASES = [
+  { key: 'summary',      label: '📊 General' },
+  { key: 'group',        label: 'Fase de Grupos' },
+  { key: 'round_of_16',  label: 'Dieciseisavos' },
+  { key: 'round_of_8',   label: 'Octavos' },
+  { key: 'quarterfinal', label: 'Cuartos' },
+  { key: 'semifinal',    label: 'Semifinal' },
+  { key: 'third_place',  label: '3er/4to Puesto' },
+  { key: 'final',        label: 'Final' },
+];
+
+let activeReportPhase = 'summary';
+
 async function renderReportTab() {
   const content = document.getElementById('admin-tab-content');
-  content.innerHTML = `<p style="color:var(--text-secondary);">Cargando reporte...</p>`;
+  content.innerHTML = `
+    <div class="phase-tabs" style="display:flex; flex-wrap:wrap; gap:var(--spacing-xs); margin-bottom:var(--spacing-lg);">
+      ${REPORT_PHASES.map(p => `
+        <button class="phase-tab ${p.key === activeReportPhase ? 'active' : ''}"
+                onclick="switchReportPhase('${p.key}')">
+          ${p.label}
+        </button>
+      `).join('')}
+    </div>
+    <div id="report-body"><p style="color:var(--text-secondary);">Cargando reporte...</p></div>
+  `;
+
+  await loadReportBody();
+}
+
+function switchReportPhase(phase) {
+  activeReportPhase = phase;
+  document.querySelectorAll('#admin-tab-content .phase-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${phase}'`));
+  });
+  loadReportBody();
+}
+
+async function loadReportBody() {
+  const body = document.getElementById('report-body');
+  body.innerHTML = `<p style="color:var(--text-secondary);">Cargando reporte...</p>`;
 
   try {
-    const res = await api.getFullReport();
-    const rows = res.data;
-
-    if (rows.length === 0) {
-      content.innerHTML = `<p style="color:var(--text-secondary);">Ningún usuario ha ingresado predicciones aún.</p>`;
-      return;
+    if (activeReportPhase === 'summary') {
+      await renderReportSummary(body);
+    } else {
+      await renderReportByPhase(body, activeReportPhase);
     }
-
-    // Agrupar por usuario
-    const byUser = {};
-    rows.forEach(r => {
-      if (!byUser[r.email]) byUser[r.email] = { nombre: r.usuario, email: r.email, preds: [] };
-      byUser[r.email].preds.push(r);
-    });
-
-    const totalUsers = Object.keys(byUser).length;
-    const totalPreds = rows.length;
-
-    const thStyle = 'padding:8px 12px; text-align:left; font-weight:600; border-bottom:2px solid var(--border);';
-    const tdStyle = 'padding:8px 12px;';
-
-    content.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing-lg); flex-wrap:wrap; gap:var(--spacing-sm);">
-        <div>
-          <strong>${totalUsers}</strong> usuarios · <strong>${totalPreds}</strong> predicciones ingresadas
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="exportReportCSV()">⬇️ Exportar CSV</button>
-      </div>
-
-      ${Object.values(byUser).map(u => `
-        <div style="margin-bottom:var(--spacing-xl);">
-          <h4 style="margin-bottom:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); background:var(--primary); color:white; border-radius:var(--radius-md);">
-            ${u.nombre} <span style="font-weight:400; font-size:var(--font-size-sm);">(${u.email})</span>
-          </h4>
-          <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:var(--font-size-sm);">
-              <thead>
-                <tr style="background:var(--background);">
-                  <th style="${thStyle}">Grupo</th>
-                  <th style="${thStyle}">J</th>
-                  <th style="${thStyle}">Local</th>
-                  <th style="${thStyle}">Visitante</th>
-                  <th style="${thStyle}">Pred.</th>
-                  <th style="${thStyle}">Real</th>
-                  <th style="${thStyle}">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${u.preds.map(p => `
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="${tdStyle}">${p.grupo}</td>
-                    <td style="${tdStyle}; text-align:center;">${p.jornada}</td>
-                    <td style="${tdStyle}">${p.local}</td>
-                    <td style="${tdStyle}">${p.visitante}</td>
-                    <td style="${tdStyle}; text-align:center; font-weight:600;">${p.pred_local} - ${p.pred_visitante}</td>
-                    <td style="${tdStyle}; text-align:center; color:${p.is_finished ? 'var(--text-primary)' : 'var(--text-secondary)'};">
-                      ${p.is_finished ? `${p.real_home_goals} - ${p.real_away_goals}` : '—'}
-                    </td>
-                    <td style="${tdStyle}; text-align:center; font-weight:700; color:${p.total_points > 0 ? 'var(--success)' : 'var(--text-secondary)'};">
-                      ${p.is_finished ? p.total_points : '—'}
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `).join('')}
-    `;
-
-    window._reportData = rows;
-
-  } catch (error) {
-    content.innerHTML = `<p style="color:var(--danger);">Error al cargar reporte: ${error.message}</p>`;
+  } catch (err) {
+    body.innerHTML = `<p style="color:var(--danger);">Error al cargar reporte: ${err.message}</p>`;
   }
 }
 
-function exportReportCSV() {
-  const rows = window._reportData;
-  if (!rows || rows.length === 0) return;
+// ── Reporte: Vista General (consolidado por usuario y fase) ───────────────────
 
-  const headers = ['Usuario','Email','Grupo','Jornada','Local','Visitante','Pred Local','Pred Visitante','Real Local','Real Visitante','Pts Ganador','Pts Marcador','Total Puntos'];
+async function renderReportSummary(body) {
+  const res = await api.getReportSummary();
+  const { stages, users } = res.data;
 
-  const csvRows = [
-    headers.join(','),
-    ...rows.map(r => [
-      `"${r.usuario}"`,
-      `"${r.email}"`,
-      r.grupo,
-      r.jornada,
-      `"${r.local}"`,
-      `"${r.visitante}"`,
-      r.pred_local,
-      r.pred_visitante,
-      r.is_finished ? r.real_home_goals : '',
-      r.is_finished ? r.real_away_goals : '',
-      r.is_finished ? r.points_winner : '',
-      r.is_finished ? r.points_score : '',
-      r.is_finished ? r.total_points : '',
-    ].join(','))
-  ];
+  if (!users || users.length === 0) {
+    body.innerHTML = `<p style="color:var(--text-secondary);">Sin datos aún.</p>`;
+    return;
+  }
 
-  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const thStyle = 'padding:8px 10px; text-align:center; font-weight:600; border-bottom:2px solid var(--border); white-space:nowrap;';
+  const tdStyle = 'padding:8px 10px; text-align:center;';
+
+  body.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing-lg); flex-wrap:wrap; gap:var(--spacing-sm);">
+      <div><strong>${users.length}</strong> participantes</div>
+      <button class="btn btn-primary btn-sm" onclick="exportReportSummaryCSV()">⬇️ Exportar CSV</button>
+    </div>
+
+    <div style="overflow-x:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:var(--spacing-md);">
+      <table style="width:100%; border-collapse:collapse; font-size:var(--font-size-sm);">
+        <thead>
+          <tr style="background:var(--background);">
+            <th style="${thStyle}; text-align:left;">#</th>
+            <th style="${thStyle}; text-align:left;">Participante</th>
+            ${stages.map(s => `<th style="${thStyle}">${s.label}</th>`).join('')}
+            <th style="${thStyle}">Bonus</th>
+            <th style="${thStyle}; background:var(--primary); color:white;">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.map((u, i) => `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="${tdStyle}; text-align:left; font-weight:600;">${i + 1}</td>
+              <td style="${tdStyle}; text-align:left;">
+                <div style="font-weight:600;">${escapeHtml(u.nombre)}</div>
+                <div style="font-size:var(--font-size-xs); color:var(--text-secondary);">${escapeHtml(u.email)}</div>
+              </td>
+              ${stages.map(s => {
+                const cell = u.by_stage[s.stage];
+                const pts = cell ? cell.points : 0;
+                return `<td style="${tdStyle}; ${pts > 0 ? 'color:var(--success); font-weight:600;' : 'color:var(--text-secondary);'}">${pts}</td>`;
+              }).join('')}
+              <td style="${tdStyle}; color:${u.bonus_points > 0 ? 'var(--success)' : 'var(--text-secondary)'}; font-weight:600;">${u.bonus_points}</td>
+              <td style="${tdStyle}; background:var(--background); font-weight:700; font-size:var(--font-size-md);">${u.total_points}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  window._reportSummary = { stages, users };
+}
+
+// ── Reporte: Vista por Fase (detalle de predicciones) ─────────────────────────
+
+async function renderReportByPhase(body, stage) {
+  const res = await api.getFullReport(stage);
+  const rows = res.data;
+
+  const phaseLabel = REPORT_PHASES.find(p => p.key === stage)?.label || stage;
+
+  if (rows.length === 0) {
+    body.innerHTML = `<p style="color:var(--text-secondary);">Sin predicciones para la fase <strong>${phaseLabel}</strong>.</p>`;
+    return;
+  }
+
+  // Agrupar por usuario y calcular totales de la fase
+  const byUser = {};
+  rows.forEach(r => {
+    if (!byUser[r.user_id]) {
+      byUser[r.user_id] = {
+        user_id: r.user_id,
+        nombre:  r.usuario,
+        email:   r.email,
+        preds:   [],
+        total:   0,
+      };
+    }
+    byUser[r.user_id].preds.push(r);
+    if (r.is_finished) byUser[r.user_id].total += (r.total_points || 0);
+  });
+
+  // Ordenar usuarios por puntaje de la fase desc
+  const users = Object.values(byUser).sort((a, b) => b.total - a.total);
+
+  const totalUsers = users.length;
+  const totalPreds = rows.length;
+
+  const thStyle = 'padding:8px 10px; text-align:left; font-weight:600; border-bottom:2px solid var(--border);';
+  const tdStyle = 'padding:8px 10px;';
+
+  body.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing-lg); flex-wrap:wrap; gap:var(--spacing-sm);">
+      <div>
+        <strong>${phaseLabel}</strong> ·
+        <strong>${totalUsers}</strong> usuarios ·
+        <strong>${totalPreds}</strong> predicciones
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="exportReportPhaseCSV('${stage}')">⬇️ Exportar CSV</button>
+    </div>
+
+    ${users.map((u, idx) => `
+      <div style="margin-bottom:var(--spacing-xl); background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:var(--spacing-sm) var(--spacing-md); background:var(--primary); color:white;">
+          <div>
+            <strong>#${idx + 1} · ${escapeHtml(u.nombre)}</strong>
+            <span style="font-weight:400; font-size:var(--font-size-sm); opacity:0.85;"> (${escapeHtml(u.email)})</span>
+          </div>
+          <div style="font-weight:700;">${u.total} pts</div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:var(--font-size-sm);">
+            <thead>
+              <tr style="background:var(--background);">
+                ${stage === 'group' ? `<th style="${thStyle}">Grupo</th><th style="${thStyle}">J</th>` : `<th style="${thStyle}">Fase</th>`}
+                <th style="${thStyle}">Local</th>
+                <th style="${thStyle}">Visitante</th>
+                <th style="${thStyle}; text-align:center;">Pred.</th>
+                <th style="${thStyle}; text-align:center;">Real</th>
+                <th style="${thStyle}; text-align:center;">Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${u.preds.map(p => `
+                <tr style="border-bottom:1px solid var(--border);">
+                  ${stage === 'group'
+                    ? `<td style="${tdStyle}">${escapeHtml(p.grupo || '')}</td><td style="${tdStyle}; text-align:center;">${p.jornada}</td>`
+                    : `<td style="${tdStyle}">${escapeHtml(p.stage_label || '')}</td>`
+                  }
+                  <td style="${tdStyle}">${escapeHtml(p.local)}</td>
+                  <td style="${tdStyle}">${escapeHtml(p.visitante)}</td>
+                  <td style="${tdStyle}; text-align:center; font-weight:600;">${p.pred_local} - ${p.pred_visitante}</td>
+                  <td style="${tdStyle}; text-align:center; color:${p.is_finished ? 'var(--text-primary)' : 'var(--text-secondary)'};">
+                    ${p.is_finished ? `${p.real_home_goals} - ${p.real_away_goals}` : '—'}
+                  </td>
+                  <td style="${tdStyle}; text-align:center; font-weight:700; color:${p.total_points > 0 ? 'var(--success)' : 'var(--text-secondary)'};">
+                    ${p.is_finished ? p.total_points : '—'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `).join('')}
+  `;
+
+  window._reportData = window._reportData || {};
+  window._reportData[stage] = rows;
+}
+
+// ── Reporte: helpers ──────────────────────────────────────────────────────────
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function csvCell(v) {
+  if (v == null) return '';
+  const s = String(v).replace(/"/g, '""');
+  return `"${s}"`;
+}
+
+function downloadCSV(filename, csvRows) {
+  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `reporte_polla_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function exportReportPhaseCSV(stage) {
+  const rows = (window._reportData || {})[stage];
+  if (!rows || rows.length === 0) return;
+
+  const isGroup = stage === 'group';
+  const headers = isGroup
+    ? ['Usuario','Email','Grupo','Jornada','Local','Visitante','Pred Local','Pred Visitante','Real Local','Real Visitante','Pts Ganador','Pts Marcador','Total Pts']
+    : ['Usuario','Email','Fase','Local','Visitante','Pred Local','Pred Visitante','Real Local','Real Visitante','Pts Ganador','Pts Marcador','Total Pts'];
+
+  const csvRows = [
+    headers.join(','),
+    ...rows.map(r => {
+      const base = isGroup
+        ? [csvCell(r.usuario), csvCell(r.email), csvCell(r.grupo), r.jornada, csvCell(r.local), csvCell(r.visitante)]
+        : [csvCell(r.usuario), csvCell(r.email), csvCell(r.stage_label), csvCell(r.local), csvCell(r.visitante)];
+      return [
+        ...base,
+        r.pred_local,
+        r.pred_visitante,
+        r.is_finished ? r.real_home_goals : '',
+        r.is_finished ? r.real_away_goals : '',
+        r.is_finished ? r.points_winner   : '',
+        r.is_finished ? r.points_score    : '',
+        r.is_finished ? r.total_points    : '',
+      ].join(',');
+    }),
+  ];
+
+  downloadCSV(`reporte_${stage}_${new Date().toISOString().slice(0,10)}.csv`, csvRows);
+}
+
+function exportReportSummaryCSV() {
+  const data = window._reportSummary;
+  if (!data) return;
+  const { stages, users } = data;
+
+  const headers = ['Posicion','Participante','Email', ...stages.map(s => s.label), 'Bonus','TOTAL'];
+  const csvRows = [
+    headers.join(','),
+    ...users.map((u, i) => [
+      i + 1,
+      csvCell(u.nombre),
+      csvCell(u.email),
+      ...stages.map(s => (u.by_stage[s.stage]?.points ?? 0)),
+      u.bonus_points,
+      u.total_points,
+    ].join(',')),
+  ];
+
+  downloadCSV(`reporte_general_${new Date().toISOString().slice(0,10)}.csv`, csvRows);
 }
 
 // ── Tab: Configuración ────────────────────────────────────────────────────────
@@ -756,8 +926,13 @@ function renderKnockoutPhases(content) {
               <input type="datetime-local" id="ko-deadline-${stage}"
                 value="${dl}"
                 style="flex:1; min-width:180px; padding:6px 8px; border:1px solid var(--border); border-radius:var(--radius-md); font-size:var(--font-size-sm);">
-              <button type="submit" class="btn btn-outline btn-sm">Guardar</button>
+              <button type="submit" class="btn ${published ? 'btn-outline' : 'btn-primary'} btn-sm">
+                ${published ? 'Guardar' : '💾 Guardar y activar'}
+              </button>
             </div>
+            ${!published && created > 0 ? `<div style="font-size:var(--font-size-xs); color:var(--warning); margin-top:4px;">
+              Al guardar la fecha se publicará la fase y los usuarios podrán registrar sus predicciones.
+            </div>` : ''}
             ${dl ? `<div style="font-size:var(--font-size-xs); color:var(--text-secondary); margin-top:4px;">
               Actual: ${new Date(phase.prediction_deadline).toLocaleString('es-ES')}
             </div>` : ''}
@@ -935,12 +1110,17 @@ async function handleSavePhaseDeadlineInline(event, stage) {
   }
   try {
     showLoader();
-    await fetch(`/api/matches/knockout/${stage}/deadline`, {
+    const res = await fetch(`/api/matches/knockout/${stage}/deadline`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.token}` },
       body: JSON.stringify({ prediction_deadline: value }),
     });
-    showToast(`Fecha límite de ${STAGE_LABELS[stage]} actualizada`, 'success');
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(body?.error?.message || `HTTP ${res.status}`);
+    }
+    const label = STAGE_LABELS[stage] || stage;
+    showToast(`${label}: ${body.message || 'Fecha límite actualizada'}`, 'success');
     await renderKnockoutTab();
   } catch (err) {
     showToast('Error: ' + err.message, 'error');

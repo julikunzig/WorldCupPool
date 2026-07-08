@@ -85,13 +85,17 @@ CREATE INDEX IF NOT EXISTS idx_matches_jornada ON matches(jornada);
 -- TABLA: knockout_phases (fases eliminatorias)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS knockout_phases (
-  id          SERIAL PRIMARY KEY,
-  stage       VARCHAR(30) NOT NULL UNIQUE,
-  label       VARCHAR(50) NOT NULL,
-  match_count SMALLINT    NOT NULL,
-  published   BOOLEAN     NOT NULL DEFAULT FALSE,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                   SERIAL PRIMARY KEY,
+  stage                VARCHAR(30) NOT NULL UNIQUE,
+  label                VARCHAR(50) NOT NULL,
+  match_count          SMALLINT    NOT NULL,
+  published            BOOLEAN     NOT NULL DEFAULT FALSE,
+  prediction_deadline  TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Idempotente: si la tabla ya existía sin la columna, la agregamos
+ALTER TABLE knockout_phases ADD COLUMN IF NOT EXISTS prediction_deadline TIMESTAMPTZ;
 
 -- ============================================================
 -- TABLA: predictions (pronósticos de usuarios)

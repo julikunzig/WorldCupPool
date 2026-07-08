@@ -184,8 +184,13 @@ class APIClient {
     return this.request('/predictions/leaderboard/me');
   }
 
-  async getFullReport() {
-    return this.request('/predictions/report');
+  async getFullReport(stage) {
+    const qs = stage ? `?stage=${encodeURIComponent(stage)}` : '';
+    return this.request(`/predictions/report${qs}`);
+  }
+
+  async getReportSummary() {
+    return this.request('/predictions/report/summary');
   }
 
   async getUserPredictions(userId) {

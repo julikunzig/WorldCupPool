@@ -266,7 +266,10 @@ const updatePhaseDeadline = async (req, res, next) => {
     }
 
     const result = await matchRepository.updatePhaseDeadline(stage, prediction_deadline);
-    res.status(200).json({ success: true, message: 'Fecha límite actualizada', data: result });
+    const message = result?.published
+      ? 'Fecha límite guardada y fase publicada'
+      : 'Fecha límite actualizada';
+    res.status(200).json({ success: true, message, data: result });
   } catch (err) {
     next(err);
   }
