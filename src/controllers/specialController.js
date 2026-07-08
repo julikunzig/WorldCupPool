@@ -103,15 +103,19 @@ const saveResults = async (req, res, next) => {
     );
 
     // Calcular puntos para todos los usuarios
-    // Campeón = 3 pts, Subcampeón = 2 pts, Tercer lugar = 2 pts
+    // Campeón = 5 pts, Subcampeón = 3 pts, Tercer lugar = 3 pts
+    const POINTS_CHAMPION   = 5;
+    const POINTS_RUNNER_UP  = 3;
+    const POINTS_THIRD_PLACE = 3;
+
     const allPredictions = await query(`SELECT * FROM special_predictions`);
 
     for (const pred of allPredictions.rows) {
       let pChamp = 0, pRunner = 0, pThird = 0;
 
-      if (champion && pred.champion === champion) pChamp = 3;
-      if (runner_up && pred.runner_up === runner_up) pRunner = 2;
-      if (third_place && pred.third_place === third_place) pThird = 2;
+      if (champion    && pred.champion    === champion)    pChamp  = POINTS_CHAMPION;
+      if (runner_up   && pred.runner_up   === runner_up)   pRunner = POINTS_RUNNER_UP;
+      if (third_place && pred.third_place === third_place) pThird  = POINTS_THIRD_PLACE;
 
       const totalBonus = pChamp + pRunner + pThird;
 

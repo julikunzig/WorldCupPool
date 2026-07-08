@@ -72,17 +72,17 @@ function renderSpecial(container, myData, teams, results, canEdit, deadline) {
         </div>
 
         <div class="form-group">
-          <label>🏆 Equipo Campeón (+3 puntos)</label>
+          <label>🏆 Equipo Campeón (+5 puntos)</label>
           ${makeSelect('special-champion', myData?.champion)}
         </div>
 
         <div class="form-group">
-          <label>🥈 Equipo Subcampeón (+2 puntos)</label>
+          <label>🥈 Equipo Subcampeón (+3 puntos)</label>
           ${makeSelect('special-runner-up', myData?.runner_up)}
         </div>
 
         <div class="form-group">
-          <label>🥉 Equipo Tercer Lugar (+2 puntos)</label>
+          <label>🥉 Equipo Tercer Lugar (+3 puntos)</label>
           ${makeSelect('special-third', myData?.third_place)}
         </div>
 
